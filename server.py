@@ -1,4 +1,3 @@
-from libencryption import Encryption
 from handshake import Handshake
 from flask import Flask, request, abort, jsonify
 from uuid import uuid4
@@ -38,7 +37,13 @@ def handshake():
         if session_id not in OPEN_CONNECTIONS.keys():
             abort(400)
 
-        
+        pms = request.args.get("pms")
+        if pms is None:
+            abort(400)
+
+        status = OPEN_CONNECTIONS[session_id].key_exchange(pms)
+
+        return "Success" if status else "Failure"
         
     else:
         abort(404)

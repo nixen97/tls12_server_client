@@ -1,4 +1,4 @@
-from libencryption import Encryption
+from libencryption import AssymetricEnc, b64_decode, b64_encode
 from enum import Enum
 import time
 
@@ -30,20 +30,26 @@ class Handshake:
             key = RSA.importKey(fp.read())
         
         # Parse server cert
-        self.encryption = Encryption(key=key) # key = parsed cert
+        self.assymetric = AssymetricEnc(key=key) # key = parsed cert
 
     def get_server_random(self):
-        return self.encryption.b64_encode(self.server_random).decode('utf-8')
+        return b64_encode(self.server_random).decode('utf-8')
 
     def send_request_cert(self):
         # Cert base64 encoded
-        b64 = self.encryption.b64_encode(self.cert_string.encode('utf-8'))
+        b64 = b64_encode(self.cert_string.encode('utf-8'))
         self.lasttransaction = time.time()
         return b64.decode('utf-8')
 
     def key_exchange(self, pre_master):
-        # Der må ikke være gået mere x millisekunder
-        pass
+        # Der må ikke være gået mere 2 sekunder siden hello
+        if (time.time() - self.lasttransaction) > 2:
+            return False
+        
+        pms = self.assymetric.Decrypt(pre_master)
+        
+
+        return True
 
     def get_shared_key(self):
         if (self.state != HSState.DONE):
