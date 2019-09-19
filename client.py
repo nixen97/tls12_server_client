@@ -1,14 +1,10 @@
 import argparse
 import requests
 import os
-from libencryption import AssymetricEnc, PRF, b64_decode, b64_encode
+from libencryption import AssymetricEnc, PRF, b64_decode, b64_encode, calculate_master_secret, generate_keys, SymmetricEnc
 
 # Used for parsing the certificate, not for any crypto stuff
 from OpenSSL.crypto import load_certificate, dump_publickey, FILETYPE_PEM
-
-print(PRF(b"secretsecret", b"thisisalabel", b"seedlings", 70))
-exit(0)
-
 
 parser = argparse.ArgumentParser(description="Client that sends a message to a server 'securely'")
 
@@ -102,11 +98,36 @@ def perform_handshake():
         print(res.status_code)
         raise ValueError()
     
-    print(pms)
+    mastersecret = calculate_master_secret(pms, client_random, server_random)
 
-    print(res.content)
+    client_hmac, server_hmac, client_key, server_key = generate_keys(mastersecret, client_random, server_random)
+
+    sym = SymmetricEnc(client_hmac, server_hmac, client_key, server_key)
+
+    return sessionId, sym
 
 
+def send_messages(msgs, sessionid, symetricenc):
+    assert isinstance(msgs, list)
+
+    for msg in msgs:
+        enc, H = symetricenc.Encrypt(msg.encode('utf-8'))
+        params = {
+            "sessionid": sessionid,
+            "message": enc.decode('utf-8'),
+            "HMAC": H.decode('utf-8')
+        }
+        res = requests.get(base_url + "/msg", params)
+
+        if res.status_code == 200:
+            print("Received postive response from server")
+        else:
+            print("Received error from server")
+
+        json = res.json()
+        result = symetricenc.Decrypt(json["msg"].encode('utf-8'), json["HMAC"].encode('utf-8')).decode('utf-8')
+        print(result)
 
 if __name__ == "__main__":
-    perform_handshake()
+    sessionid, sym = perform_handshake()
+    send_messages(msgs, sessionid, sym)

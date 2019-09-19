@@ -1,8 +1,9 @@
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5 as PKCSig
-from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Cipher import PKCS1_OAEP, AES
 from Crypto.Hash import SHA256
 import base64
+import math
 
 
 # Web encoding stuff
@@ -11,7 +12,6 @@ def b64_encode(data):
 
 def b64_decode(data):
     return base64.b64decode(data)
-
 
 class AssymetricEnc:
     def __init__(self, key=None):
@@ -150,6 +150,8 @@ def PRF(secret, label, seed, numbytes):
 
 #endregion
 
+#region TLS-related
+
 def calculate_master_secret(pms, client_random, server_random):
     return PRF(pms, b"master secret", client_random + server_random, 48)
 
@@ -158,7 +160,42 @@ def generate_keys(master_secret, client_random, server_random):
         master_secret,
         b"key expansion",
         client_random + server_random,
-        256)
+        128)
 
     # Do some sort of split
-    return key_block
+    return key_block[0:32], key_block[32:64], key_block[64:96], key_block[96:128]
+
+#endregion
+
+class SymmetricEnc:
+    def __init__(self, my_HMAC, other_HMAC, my_key, other_key):
+        self.my_HMAC_key = my_HMAC
+        self.other_HMAC_key = other_HMAC
+        self.my_aes = AES.AESCipher(my_key)
+        self.other_aes = AES.AESCipher(other_key)
+
+    def Encrypt(self, msg):
+        assert isinstance(msg, bytes)
+
+        pad = (16 * math.ceil(len(msg)/16)) - len(msg)
+        msg += b"\0"*pad
+
+        hmac = HMAC(msg, self.my_HMAC_key)
+        enc = self.my_aes.encrypt(msg)
+        
+        return (b64_encode(enc), b64_encode(hmac))
+
+    def Decrypt(self, msg, hmac):
+        assert isinstance(msg, bytes)
+        assert isinstance(hmac, bytes)
+
+        decoded = b64_decode(msg)
+
+        plain = self.other_aes.decrypt(decoded)
+        hmac_verify = HMAC(plain, self.other_HMAC_key)
+        if hmac_verify == b64_decode(hmac):
+            return plain
+        
+        return None
+
+

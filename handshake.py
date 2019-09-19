@@ -1,4 +1,4 @@
-from libencryption import AssymetricEnc, b64_decode, b64_encode
+from libencryption import AssymetricEnc, b64_decode, b64_encode, calculate_master_secret, generate_keys
 from enum import Enum
 import time
 
@@ -17,10 +17,13 @@ class HSState(Enum):
 
 
 class Handshake:
-    def __init__(self):
+    def __init__(self, client_random):
         self.state = HSState.READY
         self.lasttransaction = time.time()
 
+        self.mastersecret = None
+
+        self.client_random = b64_decode(client_random.encode('utf-8'))
         self.server_random = os.urandom(32)
 
         with open(CERT_PATH, 'r') as fp:
@@ -48,10 +51,15 @@ class Handshake:
         
         pms = self.assymetric.Decrypt(pre_master)
         
+        self.mastersecret = calculate_master_secret(pms, self.client_random, self.server_random)
+
+        self.state = HSState.DONE
 
         return True
 
     def get_shared_key(self):
         if (self.state != HSState.DONE):
             return None
-        pass
+        
+        keys = generate_keys(self.mastersecret, self.client_random, self.server_random)
+        return keys, self.mastersecret
