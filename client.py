@@ -8,9 +8,10 @@ from OpenSSL.crypto import load_certificate, dump_publickey, FILETYPE_PEM
 
 parser = argparse.ArgumentParser(description="Client that sends a message to a server 'securely'")
 
-parser.add_argument('messages', metavar='msg', type=str, nargs='+', help="The message(s) to be sent")
+parser.add_argument('messages', metavar='msg', type=str, nargs='?', help="The message(s) to be sent")
 parser.add_argument('--servip', type=str, help="The ip or address of the server")
 parser.add_argument('--servport', type=int, help="The port of the server")
+parser.add_argument('--interactive', action="store_true", help="Ignore messages, and start in interactive mode")
 
 args = parser.parse_args()
 
@@ -19,6 +20,8 @@ base_url = "http://"
 base_url += args.servip
 base_url += ":"
 base_url += str(args.servport)
+
+interactive = args.interactive
 
 print("Sending requests to:", base_url)
 
@@ -128,6 +131,36 @@ def send_messages(msgs, sessionid, symetricenc):
         result = symetricenc.Decrypt(json["msg"].encode('utf-8'), json["HMAC"].encode('utf-8')).decode('utf-8')
         print(result)
 
+def start_interactive(sessionid, sym):
+    while True:
+        msg = input("Type a message to send: ")
+        if msg is None or len(msg) == 0:
+            continue
+
+        enc, H = sym.Encrypt(msg.encode('utf-8'))
+
+        params = {
+            "sessionid": sessionid,
+            "message": enc.decode('utf-8'),
+            "HMAC": H.decode('utf-8')
+        }
+        res = requests.get(base_url + "/msg", params)
+
+        if res.status_code == 200:
+            print("Received postive response from server")
+        else:
+            print("Received error from server")
+
+        json = res.json()
+        result = sym.Decrypt(json["msg"].encode('utf-8'), json["HMAC"].encode('utf-8')).decode('utf-8')
+        print(result)
+
+
+
 if __name__ == "__main__":
     sessionid, sym = perform_handshake()
-    send_messages(msgs, sessionid, sym)
+
+    if interactive:
+        start_interactive(sessionid, sym)
+    else:
+        send_messages(msgs, sessionid, sym)
