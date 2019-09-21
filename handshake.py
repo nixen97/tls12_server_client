@@ -12,7 +12,7 @@ PRIV_PATH='./server_keys/key.pem'
 
 class HSState(Enum):
     READY = 0
-    WAITING_FOR_CERT = 1
+    KEY_EXCHANGE = 1
     DONE = 2
 
 
@@ -42,6 +42,7 @@ class Handshake:
         # Cert base64 encoded
         b64 = b64_encode(self.cert_string.encode('utf-8'))
         self.lasttransaction = time.time()
+        self.state = HSState.KEY_EXCHANGE
         return b64.decode('utf-8')
 
     def key_exchange(self, pre_master):

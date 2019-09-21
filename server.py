@@ -29,7 +29,7 @@ def message():
 
     new_msg, new_H = OPEN_CONNECTIONS[session_id].Encrypt(result.encode('utf-8'))
 
-    return jsonify({"msg": new_msg.decode('utf-8'), "HMAC": new_H.decode('utf-8')})
+    return jsonify({"msg": new_msg.decode('utf-8'), "HMAC": new_H.decode('utf-8')}) 
 
 
 @app.route("/handshake", methods=["GET"])
@@ -82,4 +82,4 @@ def handshake():
 
 
 if __name__ == '__main__':
-    app.run()
+    app.run(port=8000)

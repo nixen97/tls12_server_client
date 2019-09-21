@@ -8,7 +8,7 @@ from OpenSSL.crypto import load_certificate, dump_publickey, FILETYPE_PEM
 
 parser = argparse.ArgumentParser(description="Client that sends a message to a server 'securely'")
 
-parser.add_argument('messages', metavar='msg', type=str, nargs='?', help="The message(s) to be sent")
+parser.add_argument('messages', metavar='msg', type=str, nargs='*', help="The message(s) to be sent")
 parser.add_argument('--servip', type=str, help="The ip or address of the server")
 parser.add_argument('--servport', type=int, help="The port of the server")
 parser.add_argument('--interactive', action="store_true", help="Ignore messages, and start in interactive mode")

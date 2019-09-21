@@ -173,16 +173,18 @@ class SymmetricEnc:
         self.other_HMAC_key = other_HMAC
         self.my_aes = AES.AESCipher(my_key)
         self.other_aes = AES.AESCipher(other_key)
+        self.write_seq = 0
+        self.read_seq = 0
 
     def Encrypt(self, msg):
         assert isinstance(msg, bytes)
 
         pad = (16 * math.ceil(len(msg)/16)) - len(msg)
         msg += b"\0"*pad
-
-        hmac = HMAC(msg, self.my_HMAC_key)
-        enc = self.my_aes.encrypt(msg)
         
+        hmac = HMAC(msg, self.my_HMAC_key + self.write_seq.to_bytes(4, "little"))
+        enc = self.my_aes.encrypt(msg)
+        self.write_seq += 1
         return (b64_encode(enc), b64_encode(hmac))
 
     def Decrypt(self, msg, hmac):
@@ -192,7 +194,8 @@ class SymmetricEnc:
         decoded = b64_decode(msg)
 
         plain = self.other_aes.decrypt(decoded)
-        hmac_verify = HMAC(plain, self.other_HMAC_key)
+        hmac_verify = HMAC(plain, self.other_HMAC_key + self.read_seq.to_bytes(4, "little"))
+        self.read_seq += 1
         if hmac_verify == b64_decode(hmac):
             return plain
         
